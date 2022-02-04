@@ -8,6 +8,32 @@
 #include <stdlib.h>  // for strtol
 #include "omp.h"
 
+/* Prototype for BLAS matrix-matrix multiplication routine (which we will 
+   use for the reference implementation */
+void dgemm_( char *, char *,                 // transA, transB
+	     int *, int *, int *,            // m, n, k
+	     double *, double *, int *,      // alpha, A, ldA
+	               double *, int *,      //        B, ldB
+	     double *, double *, int * );    // beta,  C, ldC
+
+void dsymm_( char *, char *,                 // SIDE, UPLO
+	     int *, int *,            // m, n
+	     double *, double *, int *,      // alpha, A, ldA
+	               double *, int *,      //        B, ldB
+	     double *, double *, int * );    // beta,  C, ldC
+
+void dsyr2k_( char *, char *,                 // UPLO, trans
+	     int *, int *,            // m, n
+	     double *, double *, int *,      // alpha, A, ldA
+	               double *, int *,      //        B, ldB
+	     double *, double *, int * );    // beta,  C, ldC
+
+void dgemv_( char *,                     // trans,
+	     int *, int *,                   // m, k
+	     double *, double *, int *,      // alpha, A, ldA
+	               double *, int *,      //        X, incx
+	     double *, double *, int * );    // beta,  Y, incy
+
 #define A( i,j ) *( ap + (j)*lda + (i) )          // map A( i,j )    to array ap    in column-major order
 
 void RandomMatrix( int m, int n, double *ap, int lda )
@@ -25,7 +51,7 @@ void RandomMatrix( int m, int n, double *ap, int lda )
   }
 }
 
-void RandomMatrixSymmetric( int m, int n, double *ap, int lda )
+void ZeroMatrix( int m, int n, double *ap, int lda )
 /* 
    RandomMatrix overwrite A with random values.
 */
@@ -34,16 +60,50 @@ void RandomMatrixSymmetric( int m, int n, double *ap, int lda )
   
   #pragma omp parallel for private(i,j)
   for ( j=0; j<n; j++ ) {
-    for ( i=j; i<m; i++ ) {
-      A( i,j ) = drand48();
+    for ( i=0; i<m; i++ ) {
+      A( i,j ) = 0.0;
+    }
+  }
+}
+
+void RandomMatrixSymmetric(int n, double *ap, int lda )
+/* 
+   RandomMatrix Symmetric Positive definite.
+   #TODO: Only generate upper(or lower) triangular matrix since BLAS ignores the rest
+*/
+{
+  RandomMatrix(n,n,ap,lda);
+  int  i, j;
+  double a,b;
+  
+  #pragma omp parallel for private(i,j)
+  for ( j=0; j<n; j++ ) {
+    for ( i=j+1; i<n; i++ ) {
+      a = A( i,j ) ;
+      b = A( j,i ) ;
+      A( i,j ) = A( j,i ) = 0.5*(a+b);
     }
   }
   #pragma omp parallel for private(i,j)
-  for ( j=0; j<n; j++ ) {
-    for ( i=j+1; i<m; i++ ) {
-      A( j,i ) = A( i,j );
-    }
+  for ( i=0; i<n; i++ ) {
+      A( i,i ) = A( i,i ) + n;
   }
+  // #pragma omp parallel for private(i,j)
+  // for ( j=0; j<n; j++ ) {
+  //   for ( i=j+1; i<n; i++ ) {
+  //     A( j,i ) = A( i,j );
+  //   }
+  // }
+}
+
+void printMatrix(int m, int n, double *ap, int lda){
+  int i,j;
+  for(i = 0; i < n; i++) {
+        for(j = 0; j < m; j++) {
+            printf("%8.2f ", A( i,j ));
+        }
+        printf("\n");
+    } 
 }
 
 void usage(){
@@ -69,26 +129,51 @@ int str2int(char * string){
     }
 }
 
-/* Prototype for BLAS matrix-matrix multiplication routine (which we will 
-   use for the reference implementation */
-void dgemm_( char *, char *,                 // transA, transB
-	     int *, int *, int *,            // m, n, k
-	     double *, double *, int *,      // alpha, A, ldA
-	               double *, int *,      //        B, ldB
-	     double *, double *, int * );    // beta,  C, ldC
+void resymmetrize(int m, int n, double *ap, int lda, char uplo)
+/* 
+   RandomMatrix Symmetric Positive definite.
+   #TODO: Only generate upper(or lower) triangular matrix since BLAS ignores the rest
+*/
+{
+  int  i, j;
+  if(uplo=='u'){
+    #pragma omp parallel for private(i,j)
+    for ( j=0; j<n; j++ ) {
+      for ( i=j+1; i<n; i++ ) {
+        A( i,j ) = A( j,i );
+      }
+    }
+  }
+  else if(uplo=='l'){
+    #pragma omp parallel for private(i,j)
+    for ( j=0; j<n; j++ ) {
+      for ( i=j+1; i<n; i++ ) {
+        A( j,i ) = A( i,j );
+      }
+    }
+  }
+}
 
-void dgemv_( char *,                     // trans,
-	     int *, int *,                   // m, k
-	     double *, double *, int *,      // alpha, A, ldA
-	               double *, int *,      //        X, incx
-	     double *, double *, int * );    // beta,  Y, incy
+int issymetric(double *ap, int n, int m, int lda){
+  int  i, j;
+  
+  // #pragma omp parallel for private(i,j)
+  for ( j=0; j<n; j++ ) {
+    for ( i=j+1; i<n; i++ ) {
+      if(A(i,j) != A(j,i)){
+        return 0;
+      }
+    }
+  }
+  return 1;
+}
 
 int main(int argc, char *argv[])
 {
   int
     x, y,
     m, n, k,
-    ldA, ldB, ldY,
+    ldA, ldB, ldY, ldC,
     size, first, last, inc,
     i, irep,
     nrepeats;
@@ -96,11 +181,12 @@ int main(int argc, char *argv[])
   double
     d_one = 1.0,
     d_zero = 0.0,
+    d_half = 0.5,
     dtime, dtime_best, 
     diff, maxdiff = 0.0, gflops;
 
   double
-    *A, *B, *Y;
+    *A, *B, *Y, *C;
 
   /* Print the number of threads available */
 //   printf( "%% Number of threads = %d\n\n", omp_get_max_threads() );
@@ -113,7 +199,7 @@ if(argc<=1 || argc > 2){
 }else{
     m = str2int(argv[1]);
 }
-    nrepeats = 10;
+    nrepeats = 1;
   /* Timing trials for matrix sizes m=n=k=first to last in increments
      of inc will be performed.  (Actually, we are going to go from
      largest to smallest since this seems to give more reliable 
@@ -134,42 +220,49 @@ inc = 20;
   printf( "data = [\n" );
   printf( "%%  n     time       GFLOPS  GFLOPS/core\n" );
   
+  C = ( double * ) malloc( ldC * m * sizeof( double ) );
+  ldC = m;
+  /* Generate random matrix C */
+  ZeroMatrix( m, m, C, ldC );
+
   for ( size=last; size>= first; size-=inc ){
     /* we will only time cases where all three matrices are square */
     n = k = size;
     ldA = ldB = ldY = size;
-
+    
     /* Gflops performed */
     gflops = 2.0 * m * n * k * 1e-09;
 
     /* Allocate space for the matrices. */
-
+    /* A n*n, B n*m, Y n*m, C m*m*/
     A = ( double * ) malloc( ldA * ldB * sizeof( double ) );
     B = ( double * ) malloc( ldB * m * sizeof( double ) );
     Y = ( double * ) malloc( ldA * m * sizeof( double ) );
 
     /* Generate random matrix A */
-    RandomMatrixSymmetric( n, n, A, ldA );
+    RandomMatrixSymmetric(n, A, ldA );
 
     /* Generate random matrix B */
     RandomMatrix( n, m, B, ldB );
 
-    /* Generate random matrix C */
-    // RandomMatrix( m, n, C, ldC );
-    
     /* Time dgemm (double precision general matrix-matrix
        multiplicationn */
     for ( irep=0; irep<nrepeats; irep++ ){
     
       /* start clock */
       dtime = omp_get_wtime();
-    
-      /* Compute Y = A B + 0*> */
-      dgemm_( "n", "n",
-	      &n, &m, &n,
-	      &d_one, A, &ldA,
-	              B, &ldB,
-	      &d_zero, Y, &ldY );
+
+      dsymm_( "l", "u",
+        &n, &m,
+        &d_half, A, &ldA,
+                B, &ldB,
+        &d_zero, Y, &ldY );
+
+      dsyr2k_( "u", "t",
+        &m, &n,
+        &d_one, B, &ldB,
+                Y, &ldY,
+        &d_one, C, &ldC );
 
       /* stop clock */
       dtime = omp_get_wtime() - dtime;
@@ -183,16 +276,25 @@ inc = 20;
   
 //     printf( " %5d %8.4le %8.4le %8.4le\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
     printf( " %5d %8.4le %8.4f %8.4f\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    
+    // printMatrix(m,n,C,ldY);
+    // printMatrix(n,n,A,ldA);
+    // printMatrix(m,n,C,ldY);
+    
+    
     fflush( stdout );  // We flush the output buffer because otherwise
 		       // it may throw the timings of a next
 		       // experiment.
+    
 
     /* Free the buffers */
     free( A );
     free( B );
     free( Y );
-
   }
+  resymmetrize(m,m,C,ldC,'u');
+  printMatrix(m,m,C,ldC);
+  free( C );
   printf( "];\n\n" );
   
   exit( 0 );
