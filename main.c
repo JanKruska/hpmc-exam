@@ -7,32 +7,10 @@
 #include <limits.h>  // for INT_MAX, INT_MIN
 #include <stdlib.h>  // for strtol
 #include "omp.h"
+#include <getopt.h>
 
-/* Prototype for BLAS matrix-matrix multiplication routine (which we will 
-   use for the reference implementation */
-void dgemm_( char *, char *,                 // transA, transB
-	     int *, int *, int *,            // m, n, k
-	     double *, double *, int *,      // alpha, A, ldA
-	               double *, int *,      //        B, ldB
-	     double *, double *, int * );    // beta,  C, ldC
-
-void dsymm_( char *, char *,                 // SIDE, UPLO
-	     int *, int *,            // m, n
-	     double *, double *, int *,      // alpha, A, ldA
-	               double *, int *,      //        B, ldB
-	     double *, double *, int * );    // beta,  C, ldC
-
-void dsyr2k_( char *, char *,                 // UPLO, trans
-	     int *, int *,            // m, n
-	     double *, double *, int *,      // alpha, A, ldA
-	               double *, int *,      //        B, ldB
-	     double *, double *, int * );    // beta,  C, ldC
-
-void dgemv_( char *,                     // trans,
-	     int *, int *,                   // m, k
-	     double *, double *, int *,      // alpha, A, ldA
-	               double *, int *,      //        X, incx
-	     double *, double *, int * );    // beta,  Y, incy
+/* Flag set by ‘--verbose’. */
+static int parsable_flag;
 
 #define A( i,j ) *( ap + (j)*lda + (i) )          // map A( i,j )    to array ap    in column-major order
 
@@ -175,6 +153,7 @@ int main(int argc, char *argv[])
     m, n, k,
     ldA, ldB, ldY, ldC,
     size, first, last, inc,
+    min_m,max_m,step_m,
     i, irep,
     nrepeats;
 
@@ -194,11 +173,101 @@ int main(int argc, char *argv[])
 //   printf( "%% size m of matrix:" );
 //   scanf( "%d", &m );
 //   printf( "%% %d\n", m );
-if(argc<=1 || argc > 2){
+// if(argc == 2){
+//     m = str2int(argv[1]);
+// }else{
+//     usage();
+// }
+int aflag = 0;
+  int bflag = 0;
+  char *cvalue = NULL;
+  int index;
+  int c;
+  while (1)
+    {
+      static struct option long_options[] =
+        {
+          /* These options set a flag. */
+          {"verbose", no_argument,       &parsable_flag, 1},
+          // {"brief",   no_argument,       &verbose_flag, 0},
+          /* These options don’t set a flag.
+             We distinguish them by their indices. */
+          {"add",     no_argument,       0, 'a'},
+          {"append",  no_argument,       0, 'b'},
+          {"delete",  required_argument, 0, 'd'},
+          {"create",  required_argument, 0, 'c'},
+          {"file",    required_argument, 0, 'f'},
+          {0, 0, 0, 0}
+        };
+      /* getopt_long stores the option index here. */
+      int option_index = 0;
+
+      c = getopt_long (argc, argv, "abc:d:f:",
+                       long_options, &option_index);
+
+      /* Detect the end of the options. */
+      if (c == -1)
+        break;
+
+      switch (c)
+        {
+        case 0:
+          /* If this option set a flag, do nothing else now. */
+          if (long_options[option_index].flag != 0)
+            break;
+          printf ("option %s", long_options[option_index].name);
+          if (optarg)
+            printf (" with arg %s", optarg);
+          printf ("\n");
+          break;
+
+        case 'a':
+          puts ("option -a\n");
+          break;
+
+        case 'b':
+          puts ("option -b\n");
+          break;
+
+        case 'c':
+          printf ("option -c with value `%s'\n", optarg);
+          break;
+
+        case 'd':
+          printf ("option -d with value `%s'\n", optarg);
+          break;
+
+        case 'f':
+          printf ("option -f with value `%s'\n", optarg);
+          break;
+
+        case '?':
+          /* getopt_long already printed an error message. */
+          break;
+
+        default:
+          abort ();
+        }
+    }
+
+
+  printf ("aflag = %d, bflag = %d, cvalue = %s\n",
+          aflag, bflag, cvalue);
+  printf("%d %d \n",optind,argc);
+  if(argc-optind==1){
+    min_m = max_m = str2int(argv[optind]);
+    step_m = 1.0;
+  }else if(argc-optind==3){
+    min_m = str2int(argv[optind]);
+    max_m = str2int(argv[optind+1]);
+    step_m = str2int(argv[optind+2]);
+  }else
+  {
     usage();
-}else{
-    m = str2int(argv[1]);
-}
+  }
+  // for (index = optind; index < argc; index++)
+    
+
     nrepeats = 1;
   /* Timing trials for matrix sizes m=n=k=first to last in increments
      of inc will be performed.  (Actually, we are going to go from
@@ -218,20 +287,23 @@ inc = 20;
   printf( "n = %d to %d with increment %d, m=%d\n", first, last, inc, m );
 
   printf( "data = [\n" );
-  printf( "%%  n     time       GFLOPS  GFLOPS/core\n" );
+  printf( "%%  m     time       GFLOPS  GFLOPS/core\n" );
   
-  C = ( double * ) malloc( ldC * m * sizeof( double ) );
-  ldC = m;
-  /* Generate random matrix C */
+for(m=min_m; m<=max_m; m+=step_m){
+ldC = m;
+C = ( double * ) malloc( ldC * m * sizeof( double ) );
+  
+for ( irep=0; irep<nrepeats; irep++ ){
   ZeroMatrix( m, m, C, ldC );
-
-  for ( size=last; size>= first; size-=inc ){
-    /* we will only time cases where all three matrices are square */
-    n = k = size;
-    ldA = ldB = ldY = size;
+  /* start clock */
+  dtime = omp_get_wtime();
+  gflops = 0.0;
+  for ( n=last; n>= first; n-=inc ){
+    k = ldA = ldB = ldY = n;
     
     /* Gflops performed */
-    gflops = 2.0 * m * n * k * 1e-09;
+    /*FLOPS taken from http://www.netlib.org/lapack/lawnspdf/lawn41.pdf */
+    gflops += 1e-09 * (2*m*m*n + 2*m*n*n+n);
 
     /* Allocate space for the matrices. */
     /* A n*n, B n*m, Y n*m, C m*m*/
@@ -244,58 +316,49 @@ inc = 20;
 
     /* Generate random matrix B */
     RandomMatrix( n, m, B, ldB );
-
-    /* Time dgemm (double precision general matrix-matrix
-       multiplicationn */
-    for ( irep=0; irep<nrepeats; irep++ ){
     
-      /* start clock */
-      dtime = omp_get_wtime();
-
-      dsymm_( "l", "u",
-        &n, &m,
-        &d_half, A, &ldA,
-                B, &ldB,
-        &d_zero, Y, &ldY );
-
-      dsyr2k_( "u", "t",
-        &m, &n,
-        &d_one, B, &ldB,
-                Y, &ldY,
-        &d_one, C, &ldC );
-
-      /* stop clock */
-      dtime = omp_get_wtime() - dtime;
-
-      /* record the best time so far */
-      if ( irep == 0 ) 
-        dtime_best = dtime;
-      else
-        dtime_best = ( dtime < dtime_best ? dtime : dtime_best );
-    }
-  
-//     printf( " %5d %8.4le %8.4le %8.4le\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
-    printf( " %5d %8.4le %8.4f %8.4f\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
     
+
+    dsymm_( "l", "u",
+      &n, &m,
+      &d_half, A, &ldA,
+              B, &ldB,
+      &d_zero, Y, &ldY );
+
+    dsyr2k_( "u", "t",
+      &m, &n,
+      &d_one, B, &ldB,
+              Y, &ldY,
+      &d_one, C, &ldC );
+
     // printMatrix(m,n,C,ldY);
     // printMatrix(n,n,A,ldA);
     // printMatrix(m,n,C,ldY);
     
-    
-    fflush( stdout );  // We flush the output buffer because otherwise
-		       // it may throw the timings of a next
-		       // experiment.
-    
-
+    }
+     // We flush the output buffer because otherwise
+            // it may throw the timings of a next
+            // experiment.
     /* Free the buffers */
     free( A );
     free( B );
     free( Y );
-  }
   resymmetrize(m,m,C,ldC,'u');
-  printMatrix(m,m,C,ldC);
   free( C );
-  printf( "];\n\n" );
+  /* stop clock */
+    dtime = omp_get_wtime() - dtime;
+
+    /* record the best time so far */
+    if ( irep == 0 ) 
+      dtime_best = dtime;
+    else
+      dtime_best = ( dtime < dtime_best ? dtime : dtime_best );
   
+//     printf( " %5d %8.4le %8.4le %8.4le\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    printf( " %5d %8.4le %8.4f %8.4f\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    fflush( stdout ); 
+  // printMatrix(m,m,C,ldC);
+  }
+}
   exit( 0 );
 }
