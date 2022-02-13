@@ -8,9 +8,12 @@
 #include <stdlib.h>  // for strtol
 #include "omp.h"
 #include <getopt.h>
+#include "main.h"
 
-/* Flag set by ‘--verbose’. */
+/* Flag set by ‘--parsable. */
 static int parsable_flag;
+/* Flag set by ‘--no-header. */
+static int no_header_flag;
 
 #define A( i,j ) *( ap + (j)*lda + (i) )          // map A( i,j )    to array ap    in column-major order
 
@@ -188,7 +191,8 @@ int aflag = 0;
       static struct option long_options[] =
         {
           /* These options set a flag. */
-          {"verbose", no_argument,       &parsable_flag, 1},
+          {"parsable", no_argument,       &parsable_flag, 1},
+          {"no-header", no_argument,       &no_header_flag, 1},
           // {"brief",   no_argument,       &verbose_flag, 0},
           /* These options don’t set a flag.
              We distinguish them by their indices. */
@@ -251,9 +255,9 @@ int aflag = 0;
     }
 
 
-  printf ("aflag = %d, bflag = %d, cvalue = %s\n",
-          aflag, bflag, cvalue);
-  printf("%d %d \n",optind,argc);
+  // printf ("aflag = %d, bflag = %d, cvalue = %s\n",
+  //         aflag, bflag, cvalue);
+  // printf("%d %d \n",optind,argc);
   if(argc-optind==1){
     min_m = max_m = str2int(argv[optind]);
     step_m = 1.0;
@@ -284,10 +288,11 @@ inc = 20;
   first = ( first / inc ) * inc;
   first = ( first == 0 ? inc : first );
   
-  printf( "n = %d to %d with increment %d, m=%d\n", first, last, inc, m );
+  if(!parsable_flag)
+    printf( "n = %d to %d with increment %d, m=%d to %d with increment %d\n", first, last, inc, min_m, max_m, step_m );
 
-  printf( "data = [\n" );
-  printf( "%%  m     time       GFLOPS  GFLOPS/core\n" );
+  if(!no_header_flag)
+    printf( "   m     time       GFLOPS  GFLOPS/core\n" );
   
 for(m=min_m; m<=max_m; m+=step_m){
 ldC = m;
@@ -303,7 +308,7 @@ for ( irep=0; irep<nrepeats; irep++ ){
     
     /* Gflops performed */
     /*FLOPS taken from http://www.netlib.org/lapack/lawnspdf/lawn41.pdf */
-    gflops += 1e-09 * (2*m*m*n + 2*m*n*n+n);
+    gflops += 1e-09 * (2.0*m*m*n + 2.0*m*n*n+n);
 
     /* Allocate space for the matrices. */
     /* A n*n, B n*m, Y n*m, C m*m*/
@@ -336,16 +341,16 @@ for ( irep=0; irep<nrepeats; irep++ ){
     // printMatrix(m,n,C,ldY);
     
     }
-     // We flush the output buffer because otherwise
-            // it may throw the timings of a next
-            // experiment.
     /* Free the buffers */
     free( A );
     free( B );
     free( Y );
-  resymmetrize(m,m,C,ldC,'u');
-  free( C );
-  /* stop clock */
+     // We flush the output buffer because otherwise
+            // it may throw the timings of a next
+            // experiment.
+    resymmetrize(m,m,C,ldC,'u');
+    
+    /* stop clock */
     dtime = omp_get_wtime() - dtime;
 
     /* record the best time so far */
@@ -354,11 +359,12 @@ for ( irep=0; irep<nrepeats; irep++ ){
     else
       dtime_best = ( dtime < dtime_best ? dtime : dtime_best );
   
-//     printf( " %5d %8.4le %8.4le %8.4le\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
-    printf( " %5d %8.4le %8.4f %8.4f\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
-    fflush( stdout ); 
   // printMatrix(m,m,C,ldC);
   }
+//     printf( " %5d %8.4le %8.4le %8.4le\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+  printf( " %5d %8.4le %8.4f %8.4f\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+  fflush( stdout ); 
+  free( C );
 }
   exit( 0 );
 }
