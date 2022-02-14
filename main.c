@@ -10,7 +10,7 @@
 #include <getopt.h>
 #include "main.h"
 
-/* Flag set by ‘--parsable. */
+/* Flag set by ‘--parsable. Exports output as csv formatted text to stdout*/
 static int parsable_flag;
 /* Flag set by ‘--no-header. */
 static int no_header_flag;
@@ -186,6 +186,8 @@ int aflag = 0;
   char *cvalue = NULL;
   int index;
   int c;
+
+  nrepeats = 1;
   while (1)
     {
       static struct option long_options[] =
@@ -196,17 +198,17 @@ int aflag = 0;
           // {"brief",   no_argument,       &verbose_flag, 0},
           /* These options don’t set a flag.
              We distinguish them by their indices. */
-          {"add",     no_argument,       0, 'a'},
-          {"append",  no_argument,       0, 'b'},
-          {"delete",  required_argument, 0, 'd'},
-          {"create",  required_argument, 0, 'c'},
-          {"file",    required_argument, 0, 'f'},
+          // {"add",     no_argument,       0, 'a'},
+          // {"append",  no_argument,       0, 'b'},
+          {"repetitions",  required_argument, 0, 'r'},
+          // {"create",  required_argument, 0, 'c'},
+          // {"file",    required_argument, 0, 'f'},
           {0, 0, 0, 0}
         };
       /* getopt_long stores the option index here. */
       int option_index = 0;
 
-      c = getopt_long (argc, argv, "abc:d:f:",
+      c = getopt_long (argc, argv, ":r:",
                        long_options, &option_index);
 
       /* Detect the end of the options. */
@@ -225,24 +227,9 @@ int aflag = 0;
           printf ("\n");
           break;
 
-        case 'a':
-          puts ("option -a\n");
-          break;
-
-        case 'b':
-          puts ("option -b\n");
-          break;
-
-        case 'c':
-          printf ("option -c with value `%s'\n", optarg);
-          break;
-
-        case 'd':
-          printf ("option -d with value `%s'\n", optarg);
-          break;
-
-        case 'f':
-          printf ("option -f with value `%s'\n", optarg);
+        case 'r':
+          nrepeats = str2int(optarg);
+          // printf ("option -d with value `%s'\n", optarg);
           break;
 
         case '?':
@@ -272,7 +259,7 @@ int aflag = 0;
   // for (index = optind; index < argc; index++)
     
 
-    nrepeats = 1;
+    
   /* Timing trials for matrix sizes m=n=k=first to last in increments
      of inc will be performed.  (Actually, we are going to go from
      largest to smallest since this seems to give more reliable 
@@ -289,10 +276,14 @@ inc = 20;
   first = ( first == 0 ? inc : first );
   
   if(!parsable_flag)
-    printf( "n = %d to %d with increment %d, m=%d to %d with increment %d\n", first, last, inc, min_m, max_m, step_m );
+    printf( "n = %d to %d with increment %d, m=%d to %d with increment %d for %d repetitions\n", first, last, inc, min_m, max_m, step_m, nrepeats );
 
   if(!no_header_flag)
-    printf( "   m     time       GFLOPS  GFLOPS/core\n" );
+    if(parsable_flag)
+      printf( "m,time,GFLOPS,GFLOPS/core\n" );
+    else
+      printf( "   m     time       GFLOPS  GFLOPS/core\n" );
+
   
 for(m=min_m; m<=max_m; m+=step_m){
 ldC = m;
@@ -340,11 +331,11 @@ for ( irep=0; irep<nrepeats; irep++ ){
     // printMatrix(n,n,A,ldA);
     // printMatrix(m,n,C,ldY);
     
-    }
     /* Free the buffers */
     free( A );
     free( B );
     free( Y );
+    }
      // We flush the output buffer because otherwise
             // it may throw the timings of a next
             // experiment.
@@ -361,8 +352,11 @@ for ( irep=0; irep<nrepeats; irep++ ){
   
   // printMatrix(m,m,C,ldC);
   }
-//     printf( " %5d %8.4le %8.4le %8.4le\n", n, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
-  printf( " %5d %8.4le %8.4f %8.4f\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+  if(parsable_flag){
+    printf( "%d,%e,%e,%e\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+  }else{
+    printf( " %5d %8.4le %8.4f %8.4f\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+  }
   fflush( stdout ); 
   free( C );
 }
