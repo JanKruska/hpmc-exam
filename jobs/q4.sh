@@ -1,6 +1,6 @@
 #!/usr/local_rwth/bin/zsh
  
-#SBATCH -c 1
+#SBATCH -c 48
 
 #SBATCH --time=1:00:00
 
@@ -12,7 +12,12 @@
 #SBATCH --account=lect0070
  
 ### beginning of executable commands
-## Set env variables
-export OMP_NUM_THREADS=1
+file="../data/q4.csv"
+echo "n,m,time,GFLOPS,GFLOPS/core" > ${file}
+for n in 1 2 4 8 16 24 32 48
+do
+  export OMP_NUM_THREADS=${n}
+  echo -n "${n}," >> ${file}
+  ../main.out --parsable --no-header -r 5 10000 >> ${file}
+done
 
-./main.out -r 5 --parsable 1000 10000 500 > q3.csv
