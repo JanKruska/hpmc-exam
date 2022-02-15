@@ -11,14 +11,14 @@ all: main.out
 
 # ---------------------
 
+main.out: main.o utils.o
+	$(LINKER) $(CFLAGS) -o $@ main.o utils.o $(LDFLAGS)
 
 
-%.out: %.c Makefile
-	$(LINKER) $(CFLAGS) $< -o $@ $(LDFLAGS)
 
 
 
 # ---------------------
 
 clean:
-	rm -f *.o *~ core *.x *.pdf
+	rm -f *.o *~ core *.out *.pdf
