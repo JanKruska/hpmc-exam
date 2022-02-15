@@ -10,3 +10,4 @@ double arraySum(double *x, int size);
 double arrayMean(double *x, int size);
 double arrayStd(double *x, int size);
 double arrayVariance(double *x, int size);
+double arrayMax(double *x, int size);

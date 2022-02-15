@@ -15,5 +15,4 @@
 ## Set env variables
 export OMP_NUM_THREADS=1
 file="../data/q2.csv"
-# file="q2.csv"
 ../main.out -r 10 --parsable 1000 > ${file}

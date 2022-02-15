@@ -143,6 +143,15 @@ double arrayMin(double *x, int size) {
     return min;
 }
 
+double arrayMax(double *x, int size) {
+    int i;
+    double max = x[0];
+    for(i=1; i<size; i++) {
+        max = ( x[i] > max ? x[i] : max );
+    }
+    return max;
+}
+
 double arraySum(double *x, int size) {
     int i;
     double sum = 0.0;

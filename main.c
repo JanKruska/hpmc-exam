@@ -143,11 +143,12 @@ inc = 20;
 
   if(!no_header_flag)
     if(parsable_flag)
-      printf( "m,time,time_std,GFLOPS,GFLOPS/core\n" );
+      printf( "m,time,time_std,GFLOPS,GFLOPS_mean,GFLOPS_std,GFLOPS/core\n" );
     else
-      printf( "   m     time      time_std   GFLOPS  GFLOPS/core\n" );
+      printf( "   m     time      time_std   \t GFLOPS GFLOPS_mean GFLOPS_std GFLOPS/core\n" );
 
 double *times = malloc(nrepeats * sizeof *times);    
+double *array_gflops = malloc(nrepeats * sizeof *times);    
 for(m=min_m; m<=max_m; m+=step_m){
 ldC = m;
 C = ( double * ) malloc( ldC * m * sizeof( double ) );
@@ -202,15 +203,30 @@ for ( irep=0; irep<nrepeats; irep++ ){
     
     /* record the time */
     times[irep] = dtime;
+    array_gflops[irep] = gflops/dtime;
   
   // printMatrix(m,m,C,ldC);
   }
   dtime_best = arrayMin(times,nrepeats);
   dtime_std = arrayStd(times,nrepeats);
   if(parsable_flag){
-    printf( "%d,%e,%e,%e,%e\n", m, dtime_best, dtime_std, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    printf( "%d,%e,%e,%e,%e,%e,%e\n", 
+    m, 
+    arrayMin(times,nrepeats), 
+    arrayStd(times,nrepeats), 
+    arrayMax(array_gflops,nrepeats),
+    arrayMean(array_gflops,nrepeats),
+    arrayStd(array_gflops,nrepeats), 
+    arrayMax(array_gflops,nrepeats)/omp_get_max_threads() );
   }else{
-    printf( " %5d %8.4le %8.4le %8.4f %8.4f\n", m, dtime_best, dtime_std, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    printf( " %5d %8.4le %8.4le %10.4f %10.4f %10.4f %10.4f\n", 
+    m, 
+    arrayMin(times,nrepeats), 
+    arrayStd(times,nrepeats), 
+    arrayMax(array_gflops,nrepeats),
+    arrayMean(array_gflops,nrepeats),
+    arrayStd(array_gflops,nrepeats), 
+    arrayMax(array_gflops,nrepeats)/omp_get_max_threads() );
   }
   // We flush the output buffer because otherwise
   // it may throw the timings of a next
