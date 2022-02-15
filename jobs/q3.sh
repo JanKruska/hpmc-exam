@@ -1,6 +1,6 @@
 #!/usr/local_rwth/bin/zsh
  
-#SBATCH -c 1
+#SBATCH -c 48
 
 #SBATCH --time=1:00:00
 
