@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     d_one = 1.0,
     d_zero = 0.0,
     d_half = 0.5,
-    dtime, dtime_best, dtime_std,
+    dtime, dtime_best, dtime_std, tic,
     diff, maxdiff = 0.0, gflops;
 
   double
@@ -129,17 +129,7 @@ int aflag = 0;
   {
     usage();
   }
-  // for (index = optind; index < argc; index++)
-    
-
-    
-  /* Timing trials for matrix sizes m=n=k=first to last in increments
-     of inc will be performed.  (Actually, we are going to go from
-     largest to smallest since this seems to give more reliable 
-     timings.  */
-//   printf( "%% enter first, last, inc:" );
-//   scanf( "%d%d%d", &first, &last, &inc );
-//  int n = 100
+  
 first = 120;
 last = 300;
 inc = 20;
@@ -165,8 +155,8 @@ C = ( double * ) malloc( ldC * m * sizeof( double ) );
 for ( irep=0; irep<nrepeats; irep++ ){
   ZeroMatrix( m, m, C, ldC );
   /* start clock */
-  dtime = omp_get_wtime();
-  gflops = 0.0;
+  // dtime = omp_get_wtime();
+  dtime = gflops = 0.0;
   for ( n=last; n>= first; n-=inc ){
     k = ldA = ldB = ldY = n;
     
@@ -186,7 +176,7 @@ for ( irep=0; irep<nrepeats; irep++ ){
     /* Generate random matrix B */
     RandomMatrix( n, m, B, ldB );
     
-    
+    tic = omp_get_wtime();
 
     dsymm_( "l", "u",
       &n, &m,
@@ -200,23 +190,17 @@ for ( irep=0; irep<nrepeats; irep++ ){
               Y, &ldY,
       &d_one, C, &ldC );
 
-    // printMatrix(m,n,C,ldY);
-    // printMatrix(n,n,A,ldA);
-    // printMatrix(m,n,C,ldY);
+    /* stop clock */
+    dtime += omp_get_wtime() - tic;
     
     /* Free the buffers */
     free( A );
     free( B );
     free( Y );
     }
-     // We flush the output buffer because otherwise
-            // it may throw the timings of a next
-            // experiment.
     resymmetrize(m,m,C,ldC,'u');
     
-    /* stop clock */
-    dtime = omp_get_wtime() - dtime;
-    /* record the best time so far */
+    /* record the time */
     times[irep] = dtime;
   
   // printMatrix(m,m,C,ldC);
@@ -228,6 +212,9 @@ for ( irep=0; irep<nrepeats; irep++ ){
   }else{
     printf( " %5d %8.4le %8.4le %8.4f %8.4f\n", m, dtime_best, dtime_std, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
   }
+  // We flush the output buffer because otherwise
+  // it may throw the timings of a next
+  // experiment.
   fflush( stdout ); 
   free( C );
 }
