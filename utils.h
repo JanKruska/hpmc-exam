@@ -5,3 +5,8 @@ void printMatrix(int m, int n, double *ap, int lda);
 int str2int(char * string);
 void resymmetrize(int m, int n, double *ap, int lda, char uplo);
 int issymetric(double *ap, int n, int m, int lda);
+double arrayMin(double *x, int size);
+double arraySum(double *x, int size);
+double arrayMean(double *x, int size);
+double arrayStd(double *x, int size);
+double arrayVariance(double *x, int size);

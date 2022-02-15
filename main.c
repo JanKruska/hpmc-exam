@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     d_one = 1.0,
     d_zero = 0.0,
     d_half = 0.5,
-    dtime, dtime_best, 
+    dtime, dtime_best, dtime_std,
     diff, maxdiff = 0.0, gflops;
 
   double
@@ -153,9 +153,9 @@ inc = 20;
 
   if(!no_header_flag)
     if(parsable_flag)
-      printf( "m,time,GFLOPS,GFLOPS/core\n" );
+      printf( "m,time,time_std,GFLOPS,GFLOPS/core\n" );
     else
-      printf( "   m     time       GFLOPS  GFLOPS/core\n" );
+      printf( "   m     time      time_std   GFLOPS  GFLOPS/core\n" );
 
 double *times = malloc(nrepeats * sizeof *times);    
 for(m=min_m; m<=max_m; m+=step_m){
@@ -218,17 +218,15 @@ for ( irep=0; irep<nrepeats; irep++ ){
     dtime = omp_get_wtime() - dtime;
     /* record the best time so far */
     times[irep] = dtime;
-    if ( irep == 0 ) 
-      dtime_best = dtime;
-    else
-      dtime_best = ( dtime < dtime_best ? dtime : dtime_best );
   
   // printMatrix(m,m,C,ldC);
   }
+  dtime_best = arrayMin(times,nrepeats);
+  dtime_std = arrayStd(times,nrepeats);
   if(parsable_flag){
-    printf( "%d,%e,%e,%e\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    printf( "%d,%e,%e,%e,%e\n", m, dtime_best, dtime_std, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
   }else{
-    printf( " %5d %8.4le %8.4f %8.4f\n", m, dtime_best, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
+    printf( " %5d %8.4le %8.4le %8.4f %8.4f\n", m, dtime_best, dtime_std, gflops/dtime_best, gflops/dtime_best/omp_get_max_threads() );
   }
   fflush( stdout ); 
   free( C );

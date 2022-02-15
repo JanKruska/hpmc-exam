@@ -2,6 +2,7 @@
 #include <errno.h>   // for errno
 #include <limits.h>  // for INT_MAX, INT_MIN
 #include <stdlib.h>  // for strtol
+#include <math.h>
 #include "omp.h"
 
 #define A( i,j ) *( ap + (j)*lda + (i) )          // map A( i,j )    to array ap    in column-major order
@@ -131,4 +132,39 @@ int issymetric(double *ap, int n, int m, int lda){
     }
   }
   return 1;
+}
+
+double arrayMin(double *x, int size) {
+    int i;
+    double min = x[0];
+    for(i=1; i<size; i++) {
+        min = ( x[i] < min ? x[i] : min );
+    }
+    return min;
+}
+
+double arraySum(double *x, int size) {
+    int i;
+    double sum = 0.0;
+    for(i=0; i<size; i++) {
+        sum += x[i];
+    }
+    return sum;
+}
+
+double arrayMean(double *x, int size) {
+    return(arraySum(x,size)/size);
+}
+
+double arrayVariance(double *x, int size) {
+    int i;
+    double mean = arrayMean(x,size), sum = 0.0;
+    for(i=0; i<size; i++) {
+        sum += (x[i]-mean)*(x[i]-mean);
+    }
+    return sum/size;
+}
+
+double arrayStd(double *x, int size) {
+    return(sqrt(arrayVariance(x,size)));
 }
