@@ -12,11 +12,11 @@ all: main.out dgemm.out
 # ---------------------
 
 main.out: main.o utils.o
-	$(LINKER) $(CFLAGS) -o $@ main.o utils.o $(LDFLAGS)
+	$(LINKER) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 
-dgemm.out: dgemm.o
-	$(LINKER) $(CFLAGS) -o $@ dgemm.o $(LDFLAGS)
+dgemm.out: dgemm.o utils.o
+	$(LINKER) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # ---------------------
 
