@@ -8,6 +8,13 @@
 #include "utils.h"
 #include "omp.h"
 
+struct result {
+    double *matrix;
+    double time;
+    double gflops;
+};
+
+
 /* Flag set by ‘--parsable. Exports output as csv formatted text to stdout*/
 static int parsable_flag;
 /* Flag set by ‘--no-header. */
@@ -20,7 +27,88 @@ void usage(){
     exit(EXIT_FAILURE);
 }
 
+struct result dcase1(int m){
+  int
+    x, y,
+    n, k,
+    ldA, ldB, ldY, ldC,
+    size, first, last, inc,
+    min_m,max_m,step_m,
+    i, irep,
+    nrepeats;
 
+  double
+    d_one = 1.0,
+    d_zero = 0.0,
+    d_half = 0.5,
+    dtime, dtime_best, dtime_std, tic,
+    diff, maxdiff = 0.0, gflops;
+
+  double
+    *A, *B, *Y, *C;
+
+  first = 120;
+  last = 300;
+  inc = 20;
+  /* Adjust first and last so that they are multiples of inc */
+  last = ( last / inc ) * inc;
+  first = ( first / inc ) * inc;
+  first = ( first == 0 ? inc : first );
+
+  ldC = m;
+  C = ( double * ) malloc( ldC * m * sizeof( double ) );
+  ZeroMatrix( m, m, C, ldC );
+  // dtime = omp_get_wtime();
+  dtime = gflops = 0.0;
+  for ( n=last; n>= first; n-=inc ){
+    k = ldA = ldB = ldY = n;
+    
+    /* Gflops performed */
+    /*FLOPS taken from http://www.netlib.org/lapack/lawnspdf/lawn41.pdf */
+    gflops += 1e-09 * (2.0*m*m*n + 2.0*m*n*n+n);
+
+    /* Allocate space for the matrices. */
+    /* A n*n, B n*m, Y n*m, C m*m*/
+    A = ( double * ) malloc( ldA * ldB * sizeof( double ) );
+    B = ( double * ) malloc( ldB * m * sizeof( double ) );
+    Y = ( double * ) malloc( ldA * m * sizeof( double ) );
+
+    /* Generate random matrix A */
+    RandomMatrixSymmetric(n, A, ldA );
+
+    /* Generate random matrix B */
+    RandomMatrix( n, m, B, ldB );
+    
+    tic = omp_get_wtime();
+
+    dsymm_( "l", "u",
+      &n, &m,
+      &d_half, A, &ldA,
+              B, &ldB,
+      &d_zero, Y, &ldY );
+
+    dsyr2k_( "u", "t",
+      &m, &n,
+      &d_one, B, &ldB,
+              Y, &ldY,
+      &d_one, C, &ldC );
+
+    /* stop clock */
+    dtime += omp_get_wtime() - tic;
+    
+    /* Free the buffers */
+    free( A );
+    free( B );
+    free( Y );
+  }
+  resymmetrize(m,m,C,ldC,'u');
+
+  struct result r;
+  r.time = dtime;
+  r.gflops = gflops;
+  r.matrix = C;
+  return r;
+}
 
 int main(int argc, char *argv[])
 {
@@ -130,16 +218,8 @@ int aflag = 0;
     usage();
   }
   
-first = 120;
-last = 300;
-inc = 20;
-  /* Adjust first and last so that they are multiples of inc */
-  last = ( last / inc ) * inc;
-  first = ( first / inc ) * inc;
-  first = ( first == 0 ? inc : first );
-  
   if(!parsable_flag)
-    printf( "n = %d to %d with increment %d, m=%d to %d with increment %d for %d repetitions\n", first, last, inc, min_m, max_m, step_m, nrepeats );
+    printf( "m=%d to %d with increment %d for %d repetitions\n", min_m, max_m, step_m, nrepeats );
 
   if(!no_header_flag)
     if(parsable_flag)
@@ -149,63 +229,15 @@ inc = 20;
 
 double *times = malloc(nrepeats * sizeof *times);    
 double *array_gflops = malloc(nrepeats * sizeof *times);    
+struct result r;
 for(m=min_m; m<=max_m; m+=step_m){
-ldC = m;
-C = ( double * ) malloc( ldC * m * sizeof( double ) );
 
-for ( irep=0; irep<nrepeats; irep++ ){
-  ZeroMatrix( m, m, C, ldC );
-  /* start clock */
-  // dtime = omp_get_wtime();
-  dtime = gflops = 0.0;
-  for ( n=last; n>= first; n-=inc ){
-    k = ldA = ldB = ldY = n;
-    
-    /* Gflops performed */
-    /*FLOPS taken from http://www.netlib.org/lapack/lawnspdf/lawn41.pdf */
-    gflops += 1e-09 * (2.0*m*m*n + 2.0*m*n*n+n);
-
-    /* Allocate space for the matrices. */
-    /* A n*n, B n*m, Y n*m, C m*m*/
-    A = ( double * ) malloc( ldA * ldB * sizeof( double ) );
-    B = ( double * ) malloc( ldB * m * sizeof( double ) );
-    Y = ( double * ) malloc( ldA * m * sizeof( double ) );
-
-    /* Generate random matrix A */
-    RandomMatrixSymmetric(n, A, ldA );
-
-    /* Generate random matrix B */
-    RandomMatrix( n, m, B, ldB );
-    
-    tic = omp_get_wtime();
-
-    dsymm_( "l", "u",
-      &n, &m,
-      &d_half, A, &ldA,
-              B, &ldB,
-      &d_zero, Y, &ldY );
-
-    dsyr2k_( "u", "t",
-      &m, &n,
-      &d_one, B, &ldB,
-              Y, &ldY,
-      &d_one, C, &ldC );
-
-    /* stop clock */
-    dtime += omp_get_wtime() - tic;
-    
-    /* Free the buffers */
-    free( A );
-    free( B );
-    free( Y );
-    }
-    resymmetrize(m,m,C,ldC,'u');
-    
+  for ( irep=0; irep<nrepeats; irep++ ){
+    r = dcase1(m);
     /* record the time */
-    times[irep] = dtime;
-    array_gflops[irep] = gflops/dtime;
-  
-  // printMatrix(m,m,C,ldC);
+    times[irep] = r.time;
+    array_gflops[irep] = r.gflops/r.time;
+    free( r.matrix );
   }
   dtime_best = arrayMin(times,nrepeats);
   dtime_std = arrayStd(times,nrepeats);
@@ -232,7 +264,7 @@ for ( irep=0; irep<nrepeats; irep++ ){
   // it may throw the timings of a next
   // experiment.
   fflush( stdout ); 
-  free( C );
+  
 }
 free(times);
   exit( 0 );
