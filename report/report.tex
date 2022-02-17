@@ -1,0 +1,58 @@
+\documentclass{scrartcl}
+\usepackage[headsepline]{scrlayer-scrpage}
+\pagestyle{scrheadings}
+\usepackage[a4paper, left=3cm, right=3cm, top=3cm]{geometry}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+
+\title{Final Exam 1}
+\subtitle{Case 1, double real}
+\author{Jan Kruska jan.kruska@rwth-aachen.de}
+\date{\today}
+%\publishers{Platz für Betreuer o.\,ä.}% optional
+\lhead{HPMC - Final Exam 1}
+\rhead{\today}
+
+\begin{document}
+
+\maketitle
+
+
+\section{Question 1}
+\subsection{Versions}
+\begin{verbatim}
+gcc version 10.1.0 (GCC)
+
+Intel MKL:
+Major version:           2019
+Minor version:           0
+Update version:          1
+Product status:          Product
+Build:                   20180928
+Platform:                Intel(R) 64 architecture
+Processor optimization:  Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX-512) enabled processors
+================================================================
+\end{verbatim}
+
+\subsection{Approach}
+
+First it was observed that the computation of Case 1 could be separated into two parts, the calculation of $Y_i = \frac{1}{2}A_iB_i$ and the calculation of $C_i = B_i^TY_i + Y_i^TB_i$.
+Since the Y_i results is reused it makes sense to calculate it separately to avoid computing it multiple times.
+Since $A_i$ is always symmetric we can use the dsymm BLAS routine to calculate $Y_i$ and save roughly half of the FLOP.
+Furthermore the second term is very clearly a symmetric rank 2k update, so we can use the dsyr2k BLAS routine to calculate it and accumulate the result in $C$.
+
+The \emph{dcase1} method was implemented in that way, taking the parameter $m$ and calculating the given sum.
+
+Since \emph{dsyr2k} only returns an upper triangular matrix, it is also necessary to resymmetrize the result again, unless any further procedures can work with symmetric matrices defined only by the upper triangular part.
+
+\section{Question 2}
+
+Since \emph{dsyr2k} only returns an upper triangular matrix, there is not much point in verifying whether the matrix is actually symmetric as this property was manually enforced. 
+
+\section{Question 3}
+\section{Question 4}
+
+\end{document}
+
