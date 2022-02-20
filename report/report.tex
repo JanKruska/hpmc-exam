@@ -6,14 +6,16 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage{hyperref}
+%\usepackage{fancyhdr}
 
 \title{Final Exam 1}
 \subtitle{Case 1, double real}
 \author{Jan Kruska jan.kruska@rwth-aachen.de}
 \date{\today}
 %\publishers{Platz für Betreuer o.\,ä.}% optional
-\lhead{HPMC - Final Exam 1}
-\rhead{\today}
+\ihead{HPMC - Final Exam 1}
+\ohead{\today}
 
 \begin{document}
 
@@ -39,7 +41,7 @@ Processor optimization:  Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX-5
 \subsection{Approach}
 
 First it was observed that the computation of Case 1 could be separated into two parts, the calculation of $Y_i = \frac{1}{2}A_iB_i$ and the calculation of $C_i = B_i^TY_i + Y_i^TB_i$.
-Since the Y_i results is reused it makes sense to calculate it separately to avoid computing it multiple times.
+Since the $Y_i$ results is reused it makes sense to calculate it separately to avoid computing it multiple times.
 Since $A_i$ is always symmetric we can use the dsymm BLAS routine to calculate $Y_i$ and save roughly half of the FLOP.
 Furthermore the second term is very clearly a symmetric rank 2k update, so we can use the dsyr2k BLAS routine to calculate it and accumulate the result in $C$.
 
@@ -61,9 +63,9 @@ The best time to solution over 10 repititions for m=1000 was 0.09798188s using a
 
 \subsection{Fraction of Peak Performance}
 The Intel Xeon Platinum 8160, has a clock speed of $2.1$GHz and two AVX512 FMA units.
-As such the peak performance for one core defined as $R_{peak} = clockspeed \cdot \frac{SIMD register width}{word width} \cdot # of SIMD registers \cdot # of flop per instruction$,
+As such the peak performance for one core defined as $R_{peak} = clockspeed \cdot \frac{SIMD register width}{word width} \cdot \# of SIMD registers \cdot \# of flop per instruction$,
 results is $2.1e9 \cdot \frac{512}{64} \dot 2 \dot 2 = 67.2e9$ FLOPS, or $67.2$ GFLOPS.
-This is seemingly backed up by other benchmarks, e.g. the \href{CRESC06}{https://www.top500.org/system/179574/} supercomputer equipped with the same processor that reaches the same per core peak performance.
+This is seemingly backed up by other benchmarks, e.g. the \href{https://www.top500.org/system/179574/}{CRESC06} supercomputer equipped with the same processor that reaches the same per core peak performance.
 Surprisingly both my program (main.c) and a simple dgemm (dgemm.c) both seem to beat that benchmark, which should be physically impossible.
 
 Reasons for that could be that I missed some components in the specification, which seems unlikely since there are other benchmarks that back up our calculations.
