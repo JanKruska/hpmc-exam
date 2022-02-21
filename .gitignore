@@ -348,5 +348,5 @@ TSWLatexianTemp*
 # xwatermark package
 *.xwm
 
-*.txt
-*.csv
+# *.txt
+# *.csv

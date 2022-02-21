@@ -14,5 +14,5 @@
 ### beginning of executable commands
 ## Set env variables
 export OMP_NUM_THREADS=1
-file="../data/dgemm.csv"
+file="../data/dgemm.txt"
 ../dgemm.out > ${file}

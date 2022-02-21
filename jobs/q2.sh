@@ -14,5 +14,5 @@
 ### beginning of executable commands
 ## Set env variables
 export OMP_NUM_THREADS=1
-file="../data/q2.csv"
-../main.out -r 10 --parsable 1000 > ${file}
+file="../data/q2.txt"
+../main.out -r 10 1000 > ${file}

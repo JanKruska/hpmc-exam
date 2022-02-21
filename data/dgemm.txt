@@ -1,0 +1,11 @@
+Major version:           2019
+Minor version:           0
+Update version:          1
+Product status:          Product
+Build:                   20180928
+Platform:                Intel(R) 64 architecture
+Processor optimization:  Intel(R) Advanced Vector Extensions 512 (Intel(R) AVX-512) enabled processors
+================================================================
+
+   m     time      time_std   	 GFLOPS GFLOPS_mean GFLOPS_std GFLOPS/core
+  1000 2.2507e-02 1.1722e-02    88.8625    82.8702    16.8162    88.8625
