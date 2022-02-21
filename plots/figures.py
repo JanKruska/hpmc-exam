@@ -7,7 +7,7 @@ sns.set_theme(style="darkgrid")
 # plt.rcParams['text.usetex'] = True
 DATA_DIR = r"../data/"
 PLOTS_DIR = r"."
-FIGURE_FORMAT='png'
+FIGURE_FORMAT='pdf'
 
 def savefig(name):
     plt.savefig('{}/{}.{}'.format(PLOTS_DIR,name,FIGURE_FORMAT),bbox_inches='tight')
@@ -62,7 +62,7 @@ plt.show()
 
 plt.plot(q4["n"],q4["time"][0]/(q4["time"]*q4["n"]),label="Actual Efficiency")
 plt.plot(q4["n"],q4["n"]==q4["n"],label="Ideal Efficiency")
-plt.xlabel("# number of cores")
+plt.xlabel("number of cores")
 plt.ylabel("Efficiency")
 plt.title(r"Efficiency of procedure for different levels of OpenMP parallelization")
 plt.legend()

@@ -12,4 +12,7 @@ all:$(FILES)
 	$(LATEXMK) $(LATEXMKFLAGS) $<
 
 clean:
+	$(LATEXMK) $(LATEXMKFLAGS) -c
+	
+realclean:
 	$(LATEXMK) $(LATEXMKFLAGS) -C
