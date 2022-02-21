@@ -10,7 +10,7 @@
 
 struct result
 {
-  double *matrix;
+  // double *matrix;
   double time;
   double gflops;
 };
@@ -22,32 +22,26 @@ static int no_header_flag;
 
 void usage()
 {
-  printf("Usage: ./main M \n M - matrix dimension m of problem");
+  printf("Usage: ./main [options] M \n"
+         "or:    ./main [options] l u s \n"
+         "M: matrix dimension m of problem; l,u,s: lower, upper and step for matrix dimension m");
   exit(EXIT_FAILURE);
 }
 
-struct result dcase1(int m)
+struct result dcase1(int m, double *C)
 {
-  int
-      x,
-      y,
-      n, k,
+  int n, k,
       ldA, ldB, ldY, ldC,
-      size, first, last, inc,
-      min_m, max_m, step_m,
-      i, irep,
-      nrepeats;
+      size, first, last, inc;
 
   double
       d_one = 1.0,
       d_zero = 0.0,
       d_half = 0.5,
-      dtime, dtime_best, dtime_std, tic,
-      diff, maxdiff = 0.0, gflops;
+      dtime, tic, gflops;
 
   double
-      *A,
-      *B, *Y, *C;
+      *A, *B, *Y;
 
   first = 120;
   last = 300;
@@ -58,7 +52,7 @@ struct result dcase1(int m)
   first = (first == 0 ? inc : first);
 
   ldC = m;
-  C = (double *)malloc(ldC * m * sizeof(double));
+  
   ZeroMatrix(m, m, C, ldC);
   // dtime = omp_get_wtime();
   dtime = gflops = 0.0;
@@ -109,49 +103,18 @@ struct result dcase1(int m)
   struct result r;
   r.time = dtime;
   r.gflops = gflops;
-  r.matrix = C;
+  // r.matrix = C;
   return r;
 }
 
 int main(int argc, char *argv[])
 {
-  int
-      x,
-      y,
-      m, n, k,
-      ldA, ldB, ldY, ldC,
-      size, first, last, inc,
-      min_m, max_m, step_m,
-      i, irep,
-      nrepeats;
+  int m, min_m, max_m, step_m,
+      irep, nrepeats,
+      c;
 
   double
-      d_one = 1.0,
-      d_zero = 0.0,
-      d_half = 0.5,
-      dtime, dtime_best, dtime_std, tic,
-      diff, maxdiff = 0.0, gflops;
-
-  double
-      *A,
-      *B, *Y, *C;
-
-  /* Print the number of threads available */
-  //   printf( "%% Number of threads = %d\n\n", omp_get_max_threads() );
-  /* Every time trial is repeated "repeat" times and the fastest run in recorded */
-  //   printf( "%% size m of matrix:" );
-  //   scanf( "%d", &m );
-  //   printf( "%% %d\n", m );
-  // if(argc == 2){
-  //     m = str2int(argv[1]);
-  // }else{
-  //     usage();
-  // }
-  int aflag = 0;
-  int bflag = 0;
-  char *cvalue = NULL;
-  int index;
-  int c;
+      *C, *times, *array_gflops;
 
   nrepeats = 1;
   while (1)
@@ -161,14 +124,9 @@ int main(int argc, char *argv[])
             /* These options set a flag. */
             {"parsable", no_argument, &parsable_flag, 1},
             {"no-header", no_argument, &no_header_flag, 1},
-            // {"brief",   no_argument,       &verbose_flag, 0},
             /* These options don’t set a flag.
                We distinguish them by their indices. */
-            // {"add",     no_argument,       0, 'a'},
-            // {"append",  no_argument,       0, 'b'},
             {"repetitions", required_argument, 0, 'r'},
-            // {"create",  required_argument, 0, 'c'},
-            // {"file",    required_argument, 0, 'f'},
             {0, 0, 0, 0}};
     /* getopt_long stores the option index here. */
     int option_index = 0;
@@ -206,9 +164,6 @@ int main(int argc, char *argv[])
     }
   }
 
-  // printf ("aflag = %d, bflag = %d, cvalue = %s\n",
-  //         aflag, bflag, cvalue);
-  // printf("%d %d \n",optind,argc);
   if (argc - optind == 1)
   {
     min_m = max_m = str2int(argv[optind]);
@@ -234,22 +189,20 @@ int main(int argc, char *argv[])
     else
       printf("   m     time      time_std   \t GFLOPS GFLOPS_mean GFLOPS_std GFLOPS/core\n");
 
-  double *times = malloc(nrepeats * sizeof *times);
-  double *array_gflops = malloc(nrepeats * sizeof *times);
+  times = malloc(nrepeats * sizeof *times);
+  array_gflops = malloc(nrepeats * sizeof *array_gflops);
   struct result r;
   for (m = min_m; m <= max_m; m += step_m)
   {
-
+    C = (double *)malloc(m * m * sizeof(double));
     for (irep = 0; irep < nrepeats; irep++)
     {
-      r = dcase1(m);
+      r = dcase1(m,C);
       /* record the time */
       times[irep] = r.time;
       array_gflops[irep] = r.gflops / r.time;
-      free(r.matrix);
     }
-    dtime_best = arrayMin(times, nrepeats);
-    dtime_std = arrayStd(times, nrepeats);
+    free(C);
     if (parsable_flag)
     {
       printf("%d,%e,%e,%e,%e,%e,%e\n",
@@ -278,5 +231,6 @@ int main(int argc, char *argv[])
     fflush(stdout);
   }
   free(times);
+  free(array_gflops);
   exit(0);
 }

@@ -66,12 +66,6 @@ void RandomMatrixSymmetric(int n, double *ap, int lda)
   {
     A(i, i) = A(i, i) + n;
   }
-  // #pragma omp parallel for private(i,j)
-  // for ( j=0; j<n; j++ ) {
-  //   for ( i=j+1; i<n; i++ ) {
-  //     A( j,i ) = A( i,j );
-  //   }
-  // }
 }
 
 void printMatrix(int m, int n, double *ap, int lda)
